@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#14213D">
+    <meta name="description" content="A little collection of things on my wishlist.">
+    <title>My wishlist</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="../javascript/supabase-config.js" defer></script>
+    <script src="../javascript/app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Wishlist home">
+          <span class="brand-mark" aria-hidden="true">WL</span>
+          <span>WISHLIST / PERSONAL</span>
+        </a>
+        <button class="mode-button" id="admin-toggle" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.6 2.6l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 1 1-2.6-2.6l.1-.1a1.8 1.8 0 0 0-.9-3H3.5a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 1 1 2.6-2.6l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 1 1 2.6 2.6l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 0 1 0 3.6h-.2a1.8 1.8 0 0 0-.9 3Z"/></svg>
+          <span>Admin</span>
+        </button>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-dot"></span> PERSONAL PICKS · 2026</p>
+            <h1 id="page-title">The wishlist<span class="title-period">.</span></h1>
+            <p class="hero-description">Gear, upgrades, and good ideas worth saving for.</p>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <span class="sparkle sparkle-one">✳</span>
+            <span class="sparkle sparkle-two">✦</span>
+            <span class="art-circle"></span>
+            <span class="art-bow">✦</span>
+          </div>
+        </section>
+
+        <div class="site-status" id="site-status" role="status" hidden></div>
+        <section class="toolbar" aria-label="Wishlist controls">
+          <div class="list-summary" id="list-summary" aria-live="polite"></div>
+          <div class="toolbar-controls">
+            <label class="search-box">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg>
+              <span class="visually-hidden">Search wishlist</span>
+              <input id="search-input" type="search" placeholder="Find something..." autocomplete="off">
+            </label>
+            <label class="sort-box">
+              <span class="visually-hidden">Sort items</span>
+              <select id="sort-select">
+                <option value="featured">Featured first</option>
+                <option value="price-low">Price: low to high</option>
+                <option value="price-high">Price: high to low</option>
+                <option value="name">Name: A to Z</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <nav class="category-list" id="category-list" aria-label="Filter by category"></nav>
+        <section class="wishlist-grid" id="wishlist-grid" aria-label="Wishlist items"></section>
+
+        <section class="admin-panel" id="admin-panel" hidden aria-labelledby="admin-title">
+          <div class="admin-heading">
+            <div>
+              <p class="eyebrow">Owner access</p>
+              <h2 id="admin-title">Manage your list</h2>
+              <p class="admin-description">Sign in to update the shared wishlist.</p>
+            </div>
+            <span class="private-badge"><span></span> Shared with everyone</span>
+          </div>
+          <div class="auth-status" id="auth-status" role="status" hidden></div>
+          <form class="login-form" id="login-form">
+            <h3>Owner sign in</h3>
+            <label class="field-label" for="login-email">Email</label>
+            <input id="login-email" name="email" type="email" autocomplete="username" required>
+            <label class="field-label" for="login-password">Password</label>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+            <div class="form-actions">
+              <button class="primary-button" id="login-button" type="submit">Sign in <span aria-hidden="true">↗</span></button>
+            </div>
+            <p class="form-message" id="login-message" role="status"></p>
+          </form>
+          <div class="access-denied" id="access-denied" hidden>
+            <p>This account does not have permission to manage this wishlist.</p>
+            <button class="text-button" id="denied-sign-out-button" type="button">Sign out</button>
+          </div>
+          <div class="owner-tools" id="owner-tools" hidden>
+            <div class="owner-session">
+              <span id="owner-email"></span>
+              <button class="text-button" id="sign-out-button" type="button">Sign out</button>
+            </div>
+            <div class="admin-layout">
+            <form class="item-form" id="item-form">
+              <h3 id="form-title">Add an item</h3>
+              <label class="field-label" for="item-name">What is it called? <span>*</span></label>
+              <input id="item-name" name="name" type="text" maxlength="100" placeholder="e.g. Sunday morning coffee" required>
+
+              <div class="field-row">
+                <div>
+                  <label class="field-label" for="item-category">Category</label>
+                  <select id="item-category" name="category">
+                    <option>Home</option>
+                    <option>Style</option>
+                    <option>Tech</option>
+                    <option>Books</option>
+                    <option>Experiences</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field-label" for="item-price">Price</label>
+                  <input id="item-price" name="price" type="number" min="0" max="9999999" step="0.01" placeholder="0.00">
+                </div>
+              </div>
+
+              <label class="field-label" for="item-url">Link to item</label>
+              <input id="item-url" name="url" type="url" maxlength="2048" placeholder="https://...">
+
+              <label class="field-label" for="item-image">Image link <span class="optional">(optional)</span></label>
+              <input id="item-image" name="image" type="url" maxlength="2048" placeholder="https://...">
+
+              <label class="field-label" for="item-note">Notes <span class="optional">(optional)</span></label>
+              <textarea id="item-note" name="note" rows="3" maxlength="240" placeholder="Color, size, or details..."></textarea>
+
+              <label class="featured-control">
+                <input id="item-featured" name="featured" type="checkbox">
+                <span class="custom-checkbox" aria-hidden="true"></span>
+                <span>Put this one at the top</span>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" id="save-button" type="submit">Save item <span aria-hidden="true">↗</span></button>
+                <button class="text-button" id="cancel-edit" type="button" hidden>Cancel</button>
+              </div>
+              <p class="form-message" id="form-message" role="status"></p>
+            </form>
+
+            <div class="manage-list">
+              <div class="manage-list-heading">
+                <h3>Your items</h3>
+                <span id="admin-count"></span>
+              </div>
+              <div id="admin-list" class="admin-list"></div>
+            </div>
+          </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>THE LIST <span class="footer-heart">/</span> ALWAYS IN PROGRESS</span>
+        <span id="footer-count"></span>
+      </footer>
+    </div>
+
+    <template id="empty-state-template">
+      <div class="empty-state">
+        <span class="empty-icon" aria-hidden="true">✦</span>
+        <h2>Your list is empty</h2>
+        <p>Add your first item from the admin panel to get things started.</p>
+      </div>
+    </template>
+  </body>
+</html>
