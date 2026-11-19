@@ -95,7 +95,7 @@
     if (value === "" || value === null || value === undefined) return "";
     const amount = Number(value);
     if (!Number.isFinite(amount)) return "";
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
   }
 
   function makePlaceholder() {
