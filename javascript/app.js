@@ -2,6 +2,8 @@
 
 (() => {
   const config = window.WISHLIST_SUPABASE || {};
+  const adminAccessRequested = window.location.hash === "#admin"
+    || new URLSearchParams(window.location.search).has("admin");
   const grid = document.querySelector("#wishlist-grid");
   const categoryList = document.querySelector("#category-list");
   const summary = document.querySelector("#list-summary");
@@ -420,6 +422,12 @@
   function setAuthView() {
     const isOwner = Boolean(currentUser && currentUser.id === ownerId);
     const signedInAsOtherUser = Boolean(currentUser && !isOwner);
+    adminToggle.hidden = !isOwner && !adminAccessRequested;
+    if (!isOwner && !adminAccessRequested) {
+      isAdminOpen = false;
+      adminToggle.setAttribute("aria-pressed", "false");
+      adminPanel.hidden = true;
+    }
     loginForm.hidden = isOwner || signedInAsOtherUser || !supabaseClient;
     accessDenied.hidden = !signedInAsOtherUser;
     ownerTools.hidden = !isOwner;
