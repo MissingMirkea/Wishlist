@@ -57,10 +57,20 @@
                 <option value="name">Name: A to Z</option>
               </select>
             </label>
+            <label class="sort-box">
+              <span class="visually-hidden">Filter by status</span>
+              <select id="status-filter">
+                <option value="all">All statuses</option>
+                <option value="wanted">Wanted</option>
+                <option value="ordered">Ordered</option>
+                <option value="owned">Owned</option>
+              </select>
+            </label>
           </div>
         </section>
 
         <nav class="category-list" id="category-list" aria-label="Filter by category"></nav>
+        <section class="wishlist-stats" id="wishlist-stats" aria-label="Wishlist summary"></section>
         <section class="wishlist-grid" id="wishlist-grid" aria-label="Wishlist items"></section>
 
         <section class="admin-panel" id="admin-panel" hidden aria-labelledby="admin-title">
@@ -114,6 +124,25 @@
                 <div>
                   <label class="field-label" for="item-price">Price (€)</label>
                   <input id="item-price" name="price" type="number" min="0" max="9999999" step="0.01" placeholder="0.00">
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div>
+                  <label class="field-label" for="item-priority">Priority</label>
+                  <select id="item-priority" name="priority">
+                    <option value="high">High</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field-label" for="item-status">Status</label>
+                  <select id="item-status" name="status">
+                    <option value="wanted" selected>Wanted</option>
+                    <option value="ordered">Ordered</option>
+                    <option value="owned">Owned</option>
+                  </select>
                 </div>
               </div>
 

@@ -8,12 +8,31 @@ create table if not exists public.wishlist_items (
   name text not null check (char_length(name) between 1 and 100),
   category text not null default 'Other' check (char_length(category) <= 60),
   price numeric(12, 2) check (price is null or price >= 0),
+  priority text not null default 'medium' check (priority in ('high', 'medium', 'low')),
+  status text not null default 'wanted' check (status in ('wanted', 'ordered', 'owned')),
   url text not null default '' check (char_length(url) <= 2048),
   image text not null default '' check (char_length(image) <= 2048),
   note text not null default '' check (char_length(note) <= 240),
   featured boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Safe migration for databases created with the original schema.
+alter table public.wishlist_items add column if not exists priority text not null default 'medium';
+alter table public.wishlist_items add column if not exists status text not null default 'wanted';
+
+update public.wishlist_items
+set priority = 'medium'
+where priority is null or priority not in ('high', 'medium', 'low');
+
+update public.wishlist_items
+set status = 'wanted'
+where status is null or status not in ('wanted', 'ordered', 'owned');
+
+alter table public.wishlist_items drop constraint if exists wishlist_items_priority_check;
+alter table public.wishlist_items add constraint wishlist_items_priority_check check (priority in ('high', 'medium', 'low'));
+alter table public.wishlist_items drop constraint if exists wishlist_items_status_check;
+alter table public.wishlist_items add constraint wishlist_items_status_check check (status in ('wanted', 'ordered', 'owned'));
 
 alter table public.wishlist_items enable row level security;
 

@@ -7,6 +7,8 @@
   const summary = document.querySelector("#list-summary");
   const searchInput = document.querySelector("#search-input");
   const sortSelect = document.querySelector("#sort-select");
+  const statusFilter = document.querySelector("#status-filter");
+  const wishlistStats = document.querySelector("#wishlist-stats");
   const adminToggle = document.querySelector("#admin-toggle");
   const adminPanel = document.querySelector("#admin-panel");
   const loginForm = document.querySelector("#login-form");
@@ -32,6 +34,8 @@
     name: document.querySelector("#item-name"),
     category: document.querySelector("#item-category"),
     price: document.querySelector("#item-price"),
+    priority: document.querySelector("#item-priority"),
+    status: document.querySelector("#item-status"),
     url: document.querySelector("#item-url"),
     image: document.querySelector("#item-image"),
     note: document.querySelector("#item-note"),
@@ -98,6 +102,14 @@
     return new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
   }
 
+  function statusLabel(status) {
+    return { wanted: "Wanted", ordered: "Ordered", owned: "Owned" }[status] || "Wanted";
+  }
+
+  function priorityLabel(priority) {
+    return { high: "High priority", medium: "Medium priority", low: "Low priority" }[priority] || "Medium priority";
+  }
+
   function makePlaceholder() {
     const placeholder = document.createElement("span");
     placeholder.className = "image-placeholder";
@@ -146,8 +158,9 @@
     const query = searchInput.value.trim().toLocaleLowerCase();
     const visible = wishes.filter((wish) => {
       const inCategory = activeCategory === "All items" || (wish.category || "Other") === activeCategory;
+      const inStatus = statusFilter.value === "all" || (wish.status || "wanted") === statusFilter.value;
       const searchable = [wish.name, wish.note, wish.category].join(" ").toLocaleLowerCase();
-      return inCategory && searchable.includes(query);
+      return inCategory && inStatus && searchable.includes(query);
     });
 
     const sort = sortSelect.value;
@@ -186,6 +199,10 @@
     category.className = "card-category";
     category.textContent = wish.category || "Other";
     topline.append(category);
+    const status = document.createElement("span");
+    status.className = `card-status status-${wish.status || "wanted"}`;
+    status.textContent = statusLabel(wish.status);
+    topline.append(status);
     const priceText = formatPrice(wish.price);
     if (priceText) {
       const price = document.createElement("span");
@@ -200,7 +217,10 @@
     const note = document.createElement("p");
     note.className = "card-note";
     note.textContent = wish.note || "";
-    body.append(topline, title, note);
+    const priority = document.createElement("span");
+    priority.className = `priority-badge priority-${wish.priority || "medium"}`;
+    priority.textContent = priorityLabel(wish.priority);
+    body.append(topline, priority, title, note);
 
     const url = safeExternalUrl(wish.url);
     if (url) {
@@ -209,7 +229,7 @@
       link.href = url;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.append(document.createTextNode("Take a look "));
+      link.append(document.createTextNode("View item "));
       const arrow = document.createElement("span");
       arrow.setAttribute("aria-hidden", "true");
       arrow.textContent = "↗";
@@ -272,7 +292,7 @@
       name.textContent = wish.name;
       const meta = document.createElement("div");
       meta.className = "admin-item-meta";
-      meta.textContent = [wish.category || "Other", formatPrice(wish.price)].filter(Boolean).join(" · ");
+      meta.textContent = [wish.category || "Other", formatPrice(wish.price), statusLabel(wish.status), priorityLabel(wish.priority)].filter(Boolean).join(" · ");
       info.append(name, meta);
 
       const actions = document.createElement("div");
@@ -303,6 +323,13 @@
     renderWishlist(visible);
     const total = wishes.length;
     summary.innerHTML = `<strong>${total}</strong> ${total === 1 ? "item" : "items"}${visible.length !== total ? ` · showing ${visible.length}` : ""}`;
+    const totalValue = wishes.reduce((sum, wish) => sum + (Number.isFinite(Number(wish.price)) ? Number(wish.price) : 0), 0);
+    const owned = wishes.filter((wish) => wish.status === "owned").length;
+    const ordered = wishes.filter((wish) => wish.status === "ordered").length;
+    wishlistStats.innerHTML = `
+      <div class="stat-card"><strong>${formatPrice(totalValue) || "€0.00"}</strong><span>Wishlist value</span></div>
+      <div class="stat-card"><strong>${owned} / ${total}</strong><span>Owned</span></div>
+      <div class="stat-card"><strong>${ordered}</strong><span>On the way</span></div>`;
     footerCount.textContent = total ? `${total} ${total === 1 ? "item" : "items"} listed` : "";
     renderAdminList();
   }
@@ -322,6 +349,8 @@
     fields.name.value = wish.name;
     fields.category.value = wish.category || "Other";
     fields.price.value = wish.price ?? "";
+    fields.priority.value = wish.priority || "medium";
+    fields.status.value = wish.status || "wanted";
     fields.url.value = wish.url || "";
     fields.image.value = wish.image || "";
     fields.note.value = wish.note || "";
@@ -362,6 +391,8 @@
       name: row.name,
       category: row.category || "Other",
       price: row.price,
+      priority: row.priority || "medium",
+      status: row.status || "wanted",
       url: row.url || "",
       image: row.image || "",
       note: row.note || "",
@@ -375,6 +406,8 @@
       name: wish.name,
       category: wish.category,
       price: wish.price,
+      priority: wish.priority,
+      status: wish.status,
       url: wish.url,
       image: wish.image,
       note: wish.note,
@@ -391,7 +424,7 @@
     }
     const { data, error } = await supabaseClient
       .from("wishlist_items")
-      .select("id,name,category,price,url,image,note,featured,created_at")
+      .select("id,name,category,price,priority,status,url,image,note,featured,created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -507,6 +540,8 @@
       name,
       category: fields.category.value,
       price: priceText ? Number(priceText) : null,
+      priority: fields.priority.value,
+      status: fields.status.value,
       url,
       image,
       note: fields.note.value.trim(),
@@ -545,6 +580,7 @@
   deniedSignOutButton.addEventListener("click", signOut);
   searchInput.addEventListener("input", render);
   sortSelect.addEventListener("change", render);
+  statusFilter.addEventListener("change", render);
 
   async function initialize() {
     setAuthView();
