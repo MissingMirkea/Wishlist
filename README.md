@@ -10,8 +10,10 @@ The site is built with HTML, CSS, and JavaScript. Supabase stores the wishlist s
 - Priority and status tracking (`wanted`, `ordered`, and `owned`)
 - Wishlist value, owned-item, and in-transit summaries
 - Featured items, product links, notes, images, and EUR prices
+- Public share button and gift reservations with owner reset controls
+- Owner image uploads through Supabase Storage (up to 5 MB)
 - Owner-only add, edit, and delete controls
 
 ## Database update
 
-If the Supabase table was created before priority and status were added, run the complete contents of `database/supabase.sql` in the Supabase SQL Editor once. The migration statements are safe for the existing table and give older rows sensible defaults.
+If the Supabase table was created before these features were added, run the complete contents of `database/supabase.sql` in the Supabase SQL Editor once. The migration statements add priority, status, reservations, the reservation function, and the public `wishlist-images` Storage bucket. Existing rows receive sensible defaults.

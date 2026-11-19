@@ -9,6 +9,7 @@
   const sortSelect = document.querySelector("#sort-select");
   const statusFilter = document.querySelector("#status-filter");
   const wishlistStats = document.querySelector("#wishlist-stats");
+  const shareButton = document.querySelector("#share-button");
   const adminToggle = document.querySelector("#admin-toggle");
   const adminPanel = document.querySelector("#admin-panel");
   const loginForm = document.querySelector("#login-form");
@@ -38,6 +39,7 @@
     status: document.querySelector("#item-status"),
     url: document.querySelector("#item-url"),
     image: document.querySelector("#item-image"),
+    imageFile: document.querySelector("#item-image-file"),
     note: document.querySelector("#item-note"),
     featured: document.querySelector("#item-featured")
   };
@@ -73,6 +75,7 @@
   let currentUser = null;
   let isAdminOpen = false;
   let wishlistLoadError = "";
+  let statusTimeout = null;
 
   function setMessage(element, message, isError = false) {
     element.textContent = message;
@@ -83,6 +86,34 @@
     siteStatus.textContent = message;
     siteStatus.hidden = !message;
     siteStatus.classList.toggle("error", isError);
+  }
+
+  function showTemporaryStatus(message, isError = false) {
+    window.clearTimeout(statusTimeout);
+    showSiteStatus(message, isError);
+    statusTimeout = window.setTimeout(() => showSiteStatus(""), 3200);
+  }
+
+  async function shareList() {
+    const shareData = { title: "My wishlist", text: "Take a look at my wishlist.", url: window.location.href };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(window.location.href);
+        showTemporaryStatus("Wishlist link copied to your clipboard.");
+      } else {
+        const input = document.createElement("input");
+        input.value = window.location.href;
+        document.body.append(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+        showTemporaryStatus("Wishlist link copied to your clipboard.");
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") showTemporaryStatus("Could not share the wishlist link.", true);
+    }
   }
 
   function safeExternalUrl(value) {
@@ -236,6 +267,19 @@
       link.append(arrow);
       body.append(link);
     }
+    if (wish.status === "wanted" && !wish.reserved) {
+      const reserve = document.createElement("button");
+      reserve.type = "button";
+      reserve.className = "reserve-button";
+      reserve.textContent = "Reserve as a gift";
+      reserve.addEventListener("click", () => reserveWish(wish));
+      body.append(reserve);
+    } else if (wish.reserved) {
+      const reserved = document.createElement("span");
+      reserved.className = "reserved-note";
+      reserved.textContent = "Reserved as a gift";
+      body.append(reserved);
+    }
     card.append(body);
     return card;
   }
@@ -292,7 +336,7 @@
       name.textContent = wish.name;
       const meta = document.createElement("div");
       meta.className = "admin-item-meta";
-      meta.textContent = [wish.category || "Other", formatPrice(wish.price), statusLabel(wish.status), priorityLabel(wish.priority)].filter(Boolean).join(" · ");
+      meta.textContent = [wish.category || "Other", formatPrice(wish.price), statusLabel(wish.status), priorityLabel(wish.priority), wish.reserved ? "Reserved" : ""].filter(Boolean).join(" · ");
       info.append(name, meta);
 
       const actions = document.createElement("div");
@@ -312,6 +356,16 @@
       remove.textContent = "×";
       remove.addEventListener("click", () => deleteWish(wish));
       actions.append(edit, remove);
+      if (wish.reserved) {
+        const clearReservation = document.createElement("button");
+        clearReservation.type = "button";
+        clearReservation.className = "icon-button";
+        clearReservation.setAttribute("aria-label", `Clear gift reservation for ${wish.name}`);
+        clearReservation.title = "Clear reservation";
+        clearReservation.textContent = "↺";
+        clearReservation.addEventListener("click", () => clearWishReservation(wish));
+        actions.append(clearReservation);
+      }
       row.append(thumb, info, actions);
       adminList.append(row);
     });
@@ -397,6 +451,8 @@
       image: row.image || "",
       note: row.note || "",
       featured: Boolean(row.featured),
+      reserved: Boolean(row.reserved),
+      reservedAt: row.reserved_at || "",
       createdAt: Date.parse(row.created_at) || 0
     };
   }
@@ -424,7 +480,7 @@
     }
     const { data, error } = await supabaseClient
       .from("wishlist_items")
-      .select("id,name,category,price,priority,status,url,image,note,featured,created_at")
+      .select("id,name,category,price,priority,status,reserved,reserved_at,url,image,note,featured,created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -483,6 +539,53 @@
     await loadWishes();
   }
 
+  async function reserveWish(wish) {
+    if (!supabaseClient) {
+      showTemporaryStatus("Reservations are unavailable until Supabase is configured.", true);
+      return;
+    }
+    if (!window.confirm(`Reserve “${wish.name}” as a gift?`)) return;
+    const { data, error } = await supabaseClient.rpc("reserve_wishlist_item", { item_id: wish.id });
+    if (error || !data) {
+      showTemporaryStatus(data === false ? "Someone already reserved this item." : "Could not reserve this item. Please try again.", true);
+      return;
+    }
+    showTemporaryStatus("Item reserved. Thank you!");
+    await loadWishes();
+  }
+
+  async function clearWishReservation(wish) {
+    const { data, error } = await supabaseClient
+      .from("wishlist_items")
+      .update({ reserved: false, reserved_at: null })
+      .eq("id", wish.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) {
+      setMessage(formMessage, "Could not clear this reservation. Check owner access and try again.", true);
+      return;
+    }
+    showTemporaryStatus("Gift reservation cleared.");
+    await loadWishes();
+  }
+
+  async function uploadImage(file) {
+    if (!file) return "";
+    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+      throw new Error("Choose an image smaller than 5 MB.");
+    }
+    const extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const path = `${ownerId}/${id}.${extension}`;
+    const { error } = await supabaseClient.storage.from("wishlist-images").upload(path, file, {
+      cacheControl: "31536000",
+      contentType: file.type,
+      upsert: false
+    });
+    if (error) throw error;
+    return supabaseClient.storage.from("wishlist-images").getPublicUrl(path).data.publicUrl;
+  }
+
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!supabaseClient) {
@@ -524,7 +627,7 @@
     const urlInput = fields.url.value.trim();
     const imageInput = fields.image.value.trim();
     const url = safeExternalUrl(urlInput);
-    const image = safeExternalUrl(imageInput);
+    let image = safeExternalUrl(imageInput);
     if (urlInput && !url) {
       setMessage(formMessage, "Please enter a valid http or https item link.", true);
       fields.url.focus();
@@ -533,6 +636,13 @@
     if (imageInput && !image) {
       setMessage(formMessage, "Please enter a valid http or https image link.", true);
       fields.image.focus();
+      return;
+    }
+
+    try {
+      if (fields.imageFile.files[0]) image = await uploadImage(fields.imageFile.files[0]);
+    } catch (error) {
+      setMessage(formMessage, error.message || "Could not upload this image.", true);
       return;
     }
 
@@ -569,6 +679,7 @@
   });
 
   cancelEditButton.addEventListener("click", resetForm);
+  shareButton.addEventListener("click", shareList);
   adminToggle.addEventListener("click", () => {
     isAdminOpen = !isAdminOpen;
     adminToggle.setAttribute("aria-pressed", String(isAdminOpen));

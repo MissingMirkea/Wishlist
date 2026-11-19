@@ -10,6 +10,8 @@ create table if not exists public.wishlist_items (
   price numeric(12, 2) check (price is null or price >= 0),
   priority text not null default 'medium' check (priority in ('high', 'medium', 'low')),
   status text not null default 'wanted' check (status in ('wanted', 'ordered', 'owned')),
+  reserved boolean not null default false,
+  reserved_at timestamptz,
   url text not null default '' check (char_length(url) <= 2048),
   image text not null default '' check (char_length(image) <= 2048),
   note text not null default '' check (char_length(note) <= 240),
@@ -20,6 +22,8 @@ create table if not exists public.wishlist_items (
 -- Safe migration for databases created with the original schema.
 alter table public.wishlist_items add column if not exists priority text not null default 'medium';
 alter table public.wishlist_items add column if not exists status text not null default 'wanted';
+alter table public.wishlist_items add column if not exists reserved boolean not null default false;
+alter table public.wishlist_items add column if not exists reserved_at timestamptz;
 
 update public.wishlist_items
 set priority = 'medium'
@@ -33,6 +37,53 @@ alter table public.wishlist_items drop constraint if exists wishlist_items_prior
 alter table public.wishlist_items add constraint wishlist_items_priority_check check (priority in ('high', 'medium', 'low'));
 alter table public.wishlist_items drop constraint if exists wishlist_items_status_check;
 alter table public.wishlist_items add constraint wishlist_items_status_check check (status in ('wanted', 'ordered', 'owned'));
+
+-- Public gift reservations do not expose the reserver's identity and are race-safe.
+create or replace function public.reserve_wishlist_item(item_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.wishlist_items
+  set reserved = true, reserved_at = now()
+  where id = item_id and status = 'wanted' and reserved = false;
+  return found;
+end;
+$$;
+
+revoke all on function public.reserve_wishlist_item(uuid) from public;
+grant execute on function public.reserve_wishlist_item(uuid) to anon, authenticated;
+
+-- Uploaded images are public because wishlist cards are public.
+insert into storage.buckets (id, name, public)
+values ('wishlist-images', 'wishlist-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "Anyone can view wishlist images" on storage.objects;
+create policy "Anyone can view wishlist images"
+  on storage.objects for select
+  using (bucket_id = 'wishlist-images');
+
+drop policy if exists "Owner can upload wishlist images" on storage.objects;
+create policy "Owner can upload wishlist images"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'wishlist-images' and auth.uid() = '4b9d3d9e-1e06-428e-b238-9305457c89c2'::uuid);
+
+drop policy if exists "Owner can update wishlist images" on storage.objects;
+create policy "Owner can update wishlist images"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'wishlist-images' and auth.uid() = '4b9d3d9e-1e06-428e-b238-9305457c89c2'::uuid)
+  with check (bucket_id = 'wishlist-images' and auth.uid() = '4b9d3d9e-1e06-428e-b238-9305457c89c2'::uuid);
+
+drop policy if exists "Owner can delete wishlist images" on storage.objects;
+create policy "Owner can delete wishlist images"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'wishlist-images' and auth.uid() = '4b9d3d9e-1e06-428e-b238-9305457c89c2'::uuid);
 
 alter table public.wishlist_items enable row level security;
 
